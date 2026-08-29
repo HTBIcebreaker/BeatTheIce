@@ -14,10 +14,10 @@ export const HostPopupBanner = () => {
     {
       id: 'default_popup',
       type: 'mission',
-      title: '새로운 미션',
-      highlight: '12시, 18시, 21시',
-      message: '새로운 미션이 12시, 18시, 21시에 찾아와요!',
-      actionText: '미션 보기',
+      title: '🚨 게릴라 미션 발동!',
+      highlight: '제한시간 5분 · 보상 200P',
+      message: "지금부터 5분간! 나와 '생일 월'이 같은 게스트를 찾아 QR을 스캔하세요!",
+      actionText: '미션 도전하기',
     }
   ];
 
