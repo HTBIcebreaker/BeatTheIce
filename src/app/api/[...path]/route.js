@@ -16,14 +16,15 @@ async function dispatch(request, context) {
   const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.json().catch(() => ({}));
   const headers = Object.fromEntries(request.headers.entries());
 
+  const routerPath = `${url.pathname.replace(/^\/api(?=\/|$)/, '') || '/'}${url.search}`;
   const req = {
     method: request.method,
-    url: `${url.pathname}${url.search}`,
+    url: routerPath,
     originalUrl: `${url.pathname}${url.search}`,
     headers,
     body,
     query: Object.fromEntries(url.searchParams.entries()),
-    path: url.pathname,
+    path: routerPath.split('?')[0],
     get(name) {
       return headers[name.toLowerCase()];
     },
@@ -79,4 +80,3 @@ export async function POST(request, context) {
 export async function PATCH(request, context) {
   return dispatch(request, context);
 }
-
