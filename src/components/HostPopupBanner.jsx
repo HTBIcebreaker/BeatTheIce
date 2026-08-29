@@ -13,11 +13,11 @@ export const HostPopupBanner = () => {
   const activePopups = popups.length > 0 ? popups : [
     {
       id: 'default_popup',
-      type: 'general',
-      title: '새로운 상대가',
-      highlight: '12시, 18시, 21시',
-      message: '에 찾아와요!',
-      actionText: '확인',
+      type: 'mission',
+      title: '🚨 게릴라 미션 발동!',
+      highlight: '제한시간 5분 · 보상 200P',
+      message: "지금부터 5분간! 나와 '생일 월'이 같은 게스트를 찾아 QR을 스캔하세요!",
+      actionText: '미션 도전하기',
     }
   ];
 
@@ -85,21 +85,15 @@ export const HostPopupBanner = () => {
             </div>
 
             <div className="text-xs text-slate-800 leading-snug truncate">
-              {current.type === 'general' && current.title === '새로운 상대가' ? (
-                <span>
-                  새로운 상대가 <span className="text-begins-pink font-bold">{current.highlight}</span> 에 찾아와요!
-                </span>
-              ) : (
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5 font-bold text-[11px] text-slate-500">
-                    <span>{config.badge}</span>
-                    {current.timestamp && <span className="text-[10px] text-slate-400 font-normal">· {current.timestamp}</span>}
-                  </div>
-                  <span className="truncate font-semibold text-slate-800">
-                    {current.message}
-                  </span>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 font-bold text-[11px] text-slate-500">
+                  <span>{config.badge}</span>
+                  {current.timestamp && <span className="text-[10px] text-slate-400 font-normal">· {current.timestamp}</span>}
                 </div>
-              )}
+                <span className="truncate font-semibold text-slate-800">
+                  {current.message}
+                </span>
+              </div>
             </div>
           </div>
 
