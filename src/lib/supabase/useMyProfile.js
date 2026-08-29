@@ -12,6 +12,7 @@ export function useMyProfile(seed) {
   seedRef.current = seed;
 
   useEffect(() => {
+    if (!seed) return undefined;
     let cancelled = false;
 
     async function bootstrap() {
@@ -42,7 +43,7 @@ export function useMyProfile(seed) {
     };
     // 최초 1회만 부트스트랩한다. seed는 초기값 용도로만 쓴다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [seed?.id]);
 
   return state;
 }

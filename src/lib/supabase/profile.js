@@ -65,34 +65,29 @@ export async function ensureMyProfile(defaults = {}) {
 // 추가돼야 한다 — 이건 나 혼자 결정할 스키마 변경이 아니라 팀 합의가 필요하다.
 export async function ensureDemoParty() {
   const supabase = getSupabase();
+  await ensureSession();
+  const { data, error } = await supabase.rpc('join_demo_party');
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMyProfile(input) {
+  const supabase = getSupabase();
   const session = await ensureSession();
-
-  const { data: hosted } = await supabase
-    .from('parties')
-    .select('*')
-    .eq('host_id', session.user.id)
-    .eq('join_code', DEMO_PARTY_JOIN_CODE)
-    .maybeSingle();
-
-  if (hosted) return hosted;
-
-  const { data: created, error } = await supabase
-    .from('parties')
-    .insert({
-      host_id: session.user.id,
-      name: 'BeatTheIce 데모 파티',
-      description: 'P2P QR 프로필 교환 검증용 데모 파티',
-      join_code: DEMO_PARTY_JOIN_CODE,
-      status: 'ACTIVE',
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      name: input.name,
+      mbti: input.mbti || null,
+      intro: input.bio || '',
+      avatar_url: input.avatar || null,
+      updated_at: new Date().toISOString(),
     })
+    .eq('id', session.user.id)
     .select()
     .single();
-
-  if (error) {
-    // join_code 중복(이미 다른 세션이 만듦) 등은 여기서 막힌다 — 위 ALPHA-TODO 참고.
-    throw error;
-  }
-  return created;
+  if (error) throw error;
+  return data;
 }
 
 export async function ensurePartyMembership(partyId, role = 'GUEST') {

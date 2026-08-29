@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Sparkles, Edit3, Check, Crown, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMyProfile } from '../lib/supabase/useMyProfile';
+import { updateMyProfile } from '../lib/supabase/profile';
 
 export const MyProfileView = () => {
   const { currentUser, updateGuestProfile, triggerConfetti, isHostMode, setIsHostControlOpen } = useSocket();
@@ -15,8 +16,28 @@ export const MyProfileView = () => {
 
   // PROF-02: 실제 Supabase profiles.id를 QR 값으로 쓰고, 부트스트랩 실패 시
   // 기존 Socket.IO currentUser.id 기반 표시로 폴백한다.
-  const { profile: myQrProfile, ready: myQrReady } = useMyProfile(currentUser);
+  const { profile: myQrProfile, ready: myQrReady, error: profileError } = useMyProfile(currentUser);
   const qrValue = myQrReady && myQrProfile ? myQrProfile.id : `party_guest:${currentUser?.id || 'guest'}`;
+  const shownUser = currentUser
+    ? {
+        ...currentUser,
+        name: myQrProfile?.name || currentUser.name,
+        mbti: myQrProfile?.mbti || currentUser.mbti,
+        bio: myQrProfile?.intro || currentUser.bio,
+        avatar: myQrProfile?.avatar_url || currentUser.avatar,
+      }
+    : myQrProfile
+      ? {
+          id: myQrProfile.id,
+          name: myQrProfile.name,
+          mbti: myQrProfile.mbti || '',
+          bio: myQrProfile.intro || '',
+          avatar: myQrProfile.avatar_url || 'https://api.dicebear.com/9.x/thumbs/svg?seed=BeatTheIce',
+          tags: [myQrProfile.mbti].filter(Boolean),
+          icebreakerQuestion: '오늘 가장 기대되는 순간은?',
+          icebreakerAnswer: '새로운 사람과 편하게 대화하는 순간',
+        }
+      : null;
 
   // Edit fields
   const [name, setName] = useState(currentUser?.name || '');
@@ -44,13 +65,13 @@ export const MyProfileView = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!shownUser) return;
 
     const updatedTags = [age, mbti, drinkStyle, smoking, job];
 
     setSaveError('');
     setIsSaving(true);
-    const result = await updateGuestProfile({
+    const payload = {
       name: name.trim(),
       mbti: mbti.trim().toUpperCase(),
       bio: bio.trim(),
@@ -61,7 +82,18 @@ export const MyProfileView = () => {
       tags: updatedTags.filter(Boolean),
       icebreakerQuestion: iceQ.trim(),
       icebreakerAnswer: iceA.trim(),
-    });
+    };
+    let result = { success: true };
+    if (currentUser) result = await updateGuestProfile(payload);
+    if (myQrReady) {
+      try {
+        await updateMyProfile({ ...payload, avatar: shownUser.avatar });
+      } catch (error) {
+        setIsSaving(false);
+        setSaveError(`Supabase 저장 실패: ${error.message}`);
+        return;
+      }
+    }
     setIsSaving(false);
     if (!result?.success) {
       setSaveError(result?.message || '저장하지 못했습니다.');
@@ -71,7 +103,9 @@ export const MyProfileView = () => {
     triggerConfetti({ particleCount: 60, spread: 60 });
   };
 
-  if (!currentUser) return null;
+  if (!shownUser) {
+    return <div className="flex flex-1 items-center justify-center text-sm font-bold text-slate-500">실제 프로필을 불러오는 중...</div>;
+  }
 
   return (
     <div className="flex-1 pb-24 px-4 pt-3 flex flex-col">
@@ -207,17 +241,17 @@ export const MyProfileView = () => {
           <div className="bg-white rounded-3xl p-6 border border-begins-cardBorder shadow-mobile-card text-center">
             <div className="relative w-20 h-20 mx-auto mb-2">
               <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
+                src={shownUser.avatar}
+                alt={shownUser.name}
                 className="w-full h-full rounded-full object-cover border-2 border-sky-200 shadow-md"
               />
               <span className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full bg-sky-500 text-white text-[10px] font-bold shadow-xs">
-                {currentUser.mbti}
+                {shownUser.mbti}
               </span>
             </div>
 
-            <h2 className="text-lg font-bold text-slate-900">{currentUser.name}</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">"{currentUser.bio}"</p>
+            <h2 className="text-lg font-bold text-slate-900">{shownUser.name}</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">"{shownUser.bio}"</p>
 
             {/* Tags (Begins Style) */}
             <div className="flex flex-wrap justify-center gap-1.5 my-3.5">
