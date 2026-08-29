@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { useSocket } from '../context/SocketContext';
 import { Sparkles, Crown, Users, SlidersHorizontal, RefreshCw, UserCheck } from 'lucide-react';

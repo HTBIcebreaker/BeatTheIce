@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { QRCodeSVG } from 'qrcode.react';
