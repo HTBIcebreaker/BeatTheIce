@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { useSocket } from '../context/SocketContext';
 import { Home, HeartHandshake, QrCode, MessageSquareHeart, User, Sparkles } from 'lucide-react';

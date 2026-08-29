@@ -1,15 +1,17 @@
+'use client';
+
 import React from 'react';
-import { SocketProvider, useSocket } from './context/SocketContext';
-import { Header } from './components/Header';
-import { BottomNav } from './components/BottomNav';
-import { MainView } from './views/MainView';
-import { QuestView } from './views/QuestView';
-import { ScanView } from './views/ScanView';
-import { RollingPaperView } from './views/RollingPaperView';
-import { MyProfileView } from './views/MyProfileView';
-import { PartnerProfileModal } from './components/PartnerProfileModal';
-import { QRScannerModal } from './components/QRScannerModal';
-import { HostControlModal } from './components/HostControlModal';
+import { SocketProvider, useSocket } from '../context/SocketContext';
+import { Header } from './Header';
+import { BottomNav } from './BottomNav';
+import { MainView } from '../views/MainView';
+import { QuestView } from '../views/QuestView';
+import { ScanView } from '../views/ScanView';
+import { RollingPaperView } from '../views/RollingPaperView';
+import { MyProfileView } from '../views/MyProfileView';
+import { PartnerProfileModal } from './PartnerProfileModal';
+import { QRScannerModal } from './QRScannerModal';
+import { HostControlModal } from './HostControlModal';
 
 const AppContent = () => {
   const {

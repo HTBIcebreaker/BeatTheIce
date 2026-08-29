@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { X, Crown, Send, Zap, Trophy, MessageCircle, PlusCircle, Users, Flame, Sparkles } from 'lucide-react';

@@ -22,8 +22,9 @@
 
 ## 🛠️ 기술 스택
 
+- **Framework**: Next.js (App Router), 커스텀 Node 서버로 Express + Socket.IO 통합
 - **Backend**: Node.js, Express, Socket.IO (실시간 양방향 통신)
-- **Frontend**: React, Vite, Tailwind CSS, Lucide Icons, Framer Motion
+- **Frontend**: React, Tailwind CSS, Lucide Icons, Framer Motion
 - **QR & Interactive**: `qrcode.react`, `html5-qrcode`, `canvas-confetti`
 
 ---
@@ -33,26 +34,19 @@
 ### 1. 저장소 클론 및 패키지 설치
 ```bash
 git clone https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>.git
-cd party-icebreaker-app
+cd BeatTheIce
 npm install
 ```
 
-### 2. 빌드 및 서버 실행
+### 2. 개발 모드 실행
 ```bash
-# 프론트엔드 빌드
-npm run build
-
-# 풀스택 서버 실행 (포트 3001)
-npm start
-```
-
-### 3. 개발 모드 실행 (Vite Dev Server)
-```bash
-# 터미널 1: 백엔드 서버
-npm run server
-
-# 터미널 2: 프론트엔드 Vite HMR
 npm run dev
 ```
+Next.js 페이지 렌더링, REST API(`/api/*`), Socket.IO가 모두 같은 포트(기본 `3001`)에서 함께 실행됩니다.
+브라우저에서 `http://localhost:3001`으로 접속합니다.
 
-브라우저에서 `http://localhost:3001` (또는 `http://localhost:5173`)으로 접속합니다.
+### 3. 프로덕션 빌드 & 실행
+```bash
+npm run build
+npm start
+```
