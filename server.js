@@ -24,7 +24,8 @@ nextApp.prepare().then(() => {
   });
 
   app.use(cors());
-  app.use(express.json());
+  // 사진 미션은 브라우저에서 압축된 Data URL을 전송한다.
+  app.use(express.json({ limit: '3mb' }));
 
   // REST APIs
   app.use('/api', createApiRouter(io));

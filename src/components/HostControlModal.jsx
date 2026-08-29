@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { X, Crown, Send, Zap, Trophy, MessageCircle, PlusCircle, Users, Flame, Sparkles } from 'lucide-react';
+import { X, Crown, Send, PlusCircle, Users, Flame, Camera, FileText, ClipboardCheck, Check, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const HostControlModal = ({ isOpen, onClose }) => {
-  const { host, broadcastPopup, createMission, guests, missions, triggerConfetti } = useSocket();
+  const { broadcastPopup, createMission, guests, missions, missionSubmissions, reviewMissionSubmission, triggerConfetti } = useSocket();
   const [activeSubTab, setActiveSubTab] = useState('broadcast'); // 'broadcast', 'new_mission', 'guests_status'
 
   // Broadcast state
@@ -21,6 +21,7 @@ export const HostControlModal = ({ isOpen, onClose }) => {
   const [missionDesc, setMissionDesc] = useState('');
   const [missionReward, setMissionReward] = useState('칵테일 1잔 교환권 🍸');
   const [missionPoints, setMissionPoints] = useState(100);
+  const [submissionType, setSubmissionType] = useState('TEXT');
   const [isUrgent, setIsUrgent] = useState(false);
   const [missionCreated, setMissionCreated] = useState(false);
 
@@ -63,6 +64,7 @@ export const HostControlModal = ({ isOpen, onClose }) => {
       points: Number(missionPoints),
       category: isUrgent ? '긴급 미션' : '호스트 퀘스트',
       isUrgent,
+      submissionType,
     });
 
     setMissionCreated(true);
@@ -105,7 +107,7 @@ export const HostControlModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Sub Navigation */}
-          <div className="flex border-b border-slate-100 bg-slate-50/70 p-1 gap-1">
+          <div className="grid grid-cols-4 border-b border-slate-100 bg-slate-50/70 p-1 gap-1">
             <button
               onClick={() => setActiveSubTab('broadcast')}
               className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 ${
@@ -127,6 +129,17 @@ export const HostControlModal = ({ isOpen, onClose }) => {
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>미션 등록</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('submissions')}
+              className={`py-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${
+                activeSubTab === 'submissions'
+                  ? 'bg-white text-sky-700 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              <span>제출 검수</span>
             </button>
             <button
               onClick={() => setActiveSubTab('guests_status')}
@@ -277,6 +290,18 @@ export const HostControlModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-700">제출 방식</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setSubmissionType('TEXT')} className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold ${submissionType === 'TEXT' ? 'border-sky-500 bg-sky-50 text-sky-700 ring-2 ring-sky-100' : 'border-slate-200 text-slate-500'}`}>
+                      <FileText className="h-4 w-4" /> 텍스트 인증
+                    </button>
+                    <button type="button" onClick={() => setSubmissionType('PHOTO')} className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold ${submissionType === 'PHOTO' ? 'border-sky-500 bg-sky-50 text-sky-700 ring-2 ring-sky-100' : 'border-slate-200 text-slate-500'}`}>
+                      <Camera className="h-4 w-4" /> 사진 인증
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="checkbox"
@@ -306,6 +331,50 @@ export const HostControlModal = ({ isOpen, onClose }) => {
                   </button>
                 )}
               </form>
+            )}
+
+            {activeSubTab === 'submissions' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+                  <span>미션 제출 ({missionSubmissions.length}건)</span>
+                  <span className="text-amber-600">대기 {missionSubmissions.filter((item) => item.status === 'SUBMITTED').length}건</span>
+                </div>
+                {missionSubmissions.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 py-10 text-center">
+                    <ClipboardCheck className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                    <p className="text-xs font-bold text-slate-500">아직 제출된 미션이 없습니다.</p>
+                  </div>
+                ) : (
+                  missionSubmissions.map((submission) => {
+                    const mission = missions.find((item) => item.id === submission.missionId);
+                    return (
+                      <div key={submission.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] font-black text-sky-600">{submission.guestName}</span>
+                            <h4 className="mt-0.5 text-xs font-black text-slate-900">{mission?.title || '미션'}</h4>
+                          </div>
+                          <span className={`rounded-full px-2 py-1 text-[9px] font-black ${submission.status === 'SUBMITTED' ? 'bg-amber-100 text-amber-700' : submission.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                            {submission.status === 'SUBMITTED' ? '검수 대기' : submission.status === 'APPROVED' ? '승인' : '반려'}
+                          </span>
+                        </div>
+                        {submission.photoDataUrl && <img src={submission.photoDataUrl} alt={`${submission.guestName} 인증`} className="mt-2 h-40 w-full rounded-xl bg-slate-900 object-contain" />}
+                        {submission.text && <p className="mt-2 rounded-xl bg-white p-2 text-xs text-slate-600">{submission.text}</p>}
+                        {submission.status === 'SUBMITTED' && (
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => reviewMissionSubmission(submission.id, 'REJECTED', '인증 내용을 다시 확인해 주세요.')} className="flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-white py-2 text-xs font-black text-red-600">
+                              <Ban className="h-3.5 w-3.5" /> 반려
+                            </button>
+                            <button type="button" onClick={() => reviewMissionSubmission(submission.id, 'APPROVED')} className="flex items-center justify-center gap-1 rounded-xl bg-emerald-500 py-2 text-xs font-black text-white shadow-sm">
+                              <Check className="h-3.5 w-3.5" /> 승인·보상
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
 
             {/* 3. Guests Status */}

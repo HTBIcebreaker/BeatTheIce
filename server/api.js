@@ -6,6 +6,32 @@ import { partyData } from './store.js';
 export function createApiRouter(io) {
   const router = express.Router();
 
+  const issueReward = (mission, guest) => {
+    const existing = partyData.rewards.find(
+      (reward) => reward.guestId === guest.id && reward.missionId === mission.id
+    );
+    if (existing) return existing;
+
+    if (!mission.completedBy.includes(guest.id)) mission.completedBy.push(guest.id);
+    if (!guest.completedMissions.includes(mission.id)) {
+      guest.completedMissions.push(mission.id);
+      guest.points += mission.points;
+    }
+
+    const rewardCoupon = {
+      id: `rew_${Date.now()}`,
+      missionId: mission.id,
+      guestId: guest.id,
+      title: mission.reward,
+      questTitle: mission.title,
+      code: `HIGH-${Math.floor(1000 + Math.random() * 9000)}`,
+      isUsed: false,
+      issuedAt: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+    };
+    partyData.rewards.unshift(rewardCoupon);
+    return rewardCoupon;
+  };
+
   // 1. Party Overview & Stats
   router.get('/party', (req, res) => {
     res.json({
@@ -102,7 +128,7 @@ export function createApiRouter(io) {
   });
 
   router.post('/missions', (req, res) => {
-    const { title, description, reward, points, category, isUrgent } = req.body;
+    const { title, description, reward, points, category, isUrgent, submissionType } = req.body;
     const newMission = {
       id: `quest_${Date.now()}`,
       title,
@@ -114,6 +140,8 @@ export function createApiRouter(io) {
       targetCount: 1,
       completedBy: [],
       isUrgent: !!isUrgent,
+      submissionType: submissionType === 'PHOTO' ? 'PHOTO' : 'TEXT',
+      status: 'ACTIVE',
     };
 
     partyData.missions.unshift(newMission);
@@ -133,6 +161,101 @@ export function createApiRouter(io) {
     io.emit('host_broadcast', missionPopup);
 
     res.status(201).json({ success: true, data: newMission });
+  });
+
+  router.get('/mission-submissions', (req, res) => {
+    const { missionId, guestId } = req.query;
+    const submissions = partyData.missionSubmissions.filter((submission) => {
+      if (missionId && submission.missionId !== missionId) return false;
+      if (guestId && submission.guestId !== guestId) return false;
+      return true;
+    });
+    res.json({ success: true, data: submissions });
+  });
+
+  router.post('/missions/:id/submissions', (req, res) => {
+    const mission = partyData.missions.find((item) => item.id === req.params.id);
+    const guest = partyData.guests.find((item) => item.id === req.body.guestId);
+
+    if (!mission || !guest) {
+      return res.status(404).json({ success: false, message: '미션 또는 게스트를 찾을 수 없습니다.' });
+    }
+    if (mission.status !== 'ACTIVE') {
+      return res.status(409).json({ success: false, message: '현재 제출할 수 없는 미션입니다.' });
+    }
+
+    const text = String(req.body.text || '').trim();
+    const photoDataUrl = String(req.body.photoDataUrl || '');
+    if (mission.submissionType === 'PHOTO' && !photoDataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ success: false, message: '사진 인증이 필요한 미션입니다.' });
+    }
+    if (mission.submissionType === 'TEXT' && !text) {
+      return res.status(400).json({ success: false, message: '텍스트 인증 내용을 입력해 주세요.' });
+    }
+
+    const previous = partyData.missionSubmissions.find(
+      (item) => item.missionId === mission.id && item.guestId === guest.id
+    );
+    if (previous && previous.status !== 'REJECTED') {
+      return res.status(409).json({ success: false, message: '이미 제출한 미션입니다.' });
+    }
+
+    const submission = previous || {
+      id: `submission_${Date.now()}`,
+      missionId: mission.id,
+      guestId: guest.id,
+      guestName: guest.name,
+      createdAt: new Date().toISOString(),
+    };
+    Object.assign(submission, {
+      text,
+      photoDataUrl: mission.submissionType === 'PHOTO' ? photoDataUrl : '',
+      status: 'SUBMITTED',
+      reviewedAt: null,
+    });
+    if (!previous) partyData.missionSubmissions.unshift(submission);
+
+    io.emit('mission_submission_created', submission);
+    res.status(previous ? 200 : 201).json({ success: true, data: submission });
+  });
+
+  router.patch('/mission-submissions/:id', (req, res) => {
+    const submission = partyData.missionSubmissions.find((item) => item.id === req.params.id);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: '제출 결과를 찾을 수 없습니다.' });
+    }
+    if (!['APPROVED', 'REJECTED'].includes(req.body.status)) {
+      return res.status(400).json({ success: false, message: '승인 또는 반려 상태만 사용할 수 있습니다.' });
+    }
+    if (submission.status !== 'SUBMITTED') {
+      return res.status(409).json({ success: false, message: '이미 판정된 제출입니다.' });
+    }
+
+    const mission = partyData.missions.find((item) => item.id === submission.missionId);
+    const guest = partyData.guests.find((item) => item.id === submission.guestId);
+    submission.status = req.body.status;
+    submission.reviewNote = String(req.body.reviewNote || '').trim();
+    submission.reviewedAt = new Date().toISOString();
+
+    let rewardCoupon = null;
+    if (submission.status === 'APPROVED' && mission && guest) {
+      rewardCoupon = issueReward(mission, guest);
+      const resultPopup = {
+        id: `popup_${Date.now()}`,
+        type: 'result',
+        title: '🏆 미션 결과 발표!',
+        message: `${guest.name}님이 '${mission.title}' 미션에 성공했습니다!`,
+        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        highlight: `보상: ${mission.reward}`,
+        actionText: '보상 확인하기',
+      };
+      partyData.popups.unshift(resultPopup);
+      io.emit('host_broadcast', resultPopup);
+    }
+
+    const payload = { submission, mission, guest, rewardCoupon };
+    io.emit('mission_submission_reviewed', payload);
+    res.json({ success: true, data: payload });
   });
 
   router.post('/missions/:id/complete', (req, res) => {
