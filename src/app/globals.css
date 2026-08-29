@@ -10,9 +10,16 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #0f1015;
+  min-height: 100vh;
+  background-color: #e9eef5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body > div:first-child {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
 }
 
 /* Custom scrollbars */

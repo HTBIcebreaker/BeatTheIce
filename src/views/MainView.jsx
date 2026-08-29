@@ -1,284 +1,188 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useSocket } from '../context/SocketContext';
 import { HostPopupBanner } from '../components/HostPopupBanner';
-import { QrCode, Sparkles, Heart, Zap, ChevronRight, Gift, Users, ShieldAlert, Award, Compass } from 'lucide-react';
+import {
+  ArrowRight,
+  Gift,
+  MessageCircleMore,
+  QrCode,
+  ScanLine,
+  Users,
+} from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { motion } from 'framer-motion';
+
+const ProfileCopy = ({ eyebrow, profile, empty = false }) => (
+  <div className="min-w-0 flex-1">
+    <span className="text-[10px] font-black tracking-[0.18em] text-sky-500 uppercase">
+      {eyebrow}
+    </span>
+    {empty ? (
+      <>
+        <h2 className="mt-2 text-xl font-black tracking-tight text-slate-900">
+          아직 만난 사람이 없어요
+        </h2>
+        <p className="mt-2 max-w-[190px] text-xs font-medium leading-5 text-slate-500">
+          상대방의 QR을 스캔하고 프로필을 대화의 첫 소재로 사용해 보세요.
+        </p>
+      </>
+    ) : (
+      <>
+        <div className="mt-2 flex items-center gap-2">
+          <h2 className="truncate text-xl font-black tracking-tight text-slate-900">
+            {profile?.name || '게스트'}
+          </h2>
+          <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-600 ring-1 ring-inset ring-sky-100">
+            {profile?.mbti || 'MBTI'}
+          </span>
+        </div>
+        <p className="mt-2 line-clamp-2 max-w-[205px] text-xs font-medium leading-5 text-slate-500">
+          {profile?.bio || '한 줄 소개를 등록해 주세요.'}
+        </p>
+        {profile?.job && (
+          <span className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+            {profile.job}
+          </span>
+        )}
+      </>
+    )}
+  </div>
+);
 
 export const MainView = () => {
   const {
-    party,
-    host,
     guests,
     currentUser,
+    scannedPartner,
     setIsScannerOpen,
     setActiveTab,
-    setScannedPartner,
     missions,
   } = useSocket();
 
-  const [activeSlide, setActiveSlide] = useState(0); // 0: Begines Style Preferences / Mission Card, 1: My Profile & QR Card, 2: Party Live Highlight Card
-
-  const uncompletedMissions = missions.filter(
-    (m) => !currentUser?.completedMissions?.includes(m.id)
+  const activeMission = missions.find(
+    (mission) => !currentUser?.completedMissions?.includes(mission.id)
   );
 
   return (
-    <div className="flex-1 pb-24 flex flex-col">
-      {/* 1. Host Notification Banner (Replicating the screenshot's top notice) */}
+    <div className="flex flex-1 flex-col pb-28">
       <HostPopupBanner />
 
-      {/* 2. Main Carousel / Center Card Area (Faithfully recreating the reference photo) */}
-      <div className="px-4 py-2 flex-1 flex flex-col justify-between">
-        <motion.div
-          key={activeSlide}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-          className="bg-white rounded-3xl p-6 shadow-mobile-card border border-begins-cardBorder flex flex-col justify-between min-h-[440px]"
-        >
-          {activeSlide === 0 ? (
-            /* SLIDE 0: EXACT REFERENCE CARD (선호 스타일 & 파티 취향 탐색) */
-            <>
-              <div className="text-center pt-2">
-                <h1 className="text-[19px] font-bold text-slate-900 leading-snug">
-                  선호 스타일을 설정하면<br />
-                  <span className="text-slate-900">내 취향에 맞는 상대를 만날 수 있어요</span>
-                </h1>
-                <p className="text-xs text-slate-500 font-medium mt-2">
-                  당신의 인연을 만날 확률이 올라가요
-                </p>
-              </div>
-
-              {/* Tag Chips Grid (Faithfully matching the visual pills in the user's photo) */}
-              <div className="py-6 flex flex-wrap justify-center gap-2 max-w-[310px] mx-auto">
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#EBF3FB] text-[#3B82F6] border border-blue-100 flex items-center gap-1">
-                  만 23~28세
-                </span>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#FCE8F3] text-[#E0287A] border border-pink-100 flex items-center gap-1">
-                  📎 178~200cm
-                </span>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#F1F3F5] text-slate-600 border border-slate-200 flex items-center gap-1">
-                  📍 25km 이내
-                </span>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#EBF9F1] text-[#10B981] border border-emerald-100 flex items-center gap-1">
-                  ⛪ 기독교
-                </span>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#FEF8E7] text-[#D97706] border border-amber-100 flex items-center gap-1">
-                  🧍 보통체형
-                </span>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#FDF0EC] text-[#EA580C] border border-orange-100 flex items-center gap-1">
-                  ♨️ 비흡연
-                </span>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#F3E8FF] text-[#9333EA] border border-purple-100 flex items-center gap-1">
-                  🍺 친구들 만날때만
-                </span>
-              </div>
-
-              {/* Primary Action Button (Vibrant Sky Blue) */}
-              <div>
-                <button
-                  onClick={() => setIsScannerOpen(true)}
-                  className="w-full py-4 bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white text-[15px] font-bold rounded-2xl shadow-lg shadow-sky-200 transition-all flex items-center justify-center gap-2"
-                >
-                  <QrCode className="w-5 h-5" />
-                  <span>상대방 QR 스캔 & 매칭하기</span>
-                </button>
-              </div>
-            </>
-          ) : activeSlide === 1 ? (
-            /* SLIDE 1: MY PROFILE & MY QR CARD */
-            <>
-              <div className="text-center pt-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 text-sky-600 text-xs font-bold mb-2 border border-sky-200">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>내 프로필 & QR 명함</span>
-                </div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  {currentUser?.name} ({currentUser?.mbti})
-                </h2>
-                <p className="text-xs text-slate-500 mt-1 truncate">
-                  "{currentUser?.bio}"
-                </p>
-              </div>
-
-              {/* My QR Code */}
-              <div className="flex flex-col items-center justify-center my-3">
-                <div className="p-3.5 bg-white rounded-2xl shadow-md border-2 border-sky-100">
-                  <QRCodeSVG
-                    value={`party_guest:${currentUser?.id}`}
-                    size={140}
-                    level="H"
-                    includeMargin={false}
-                    fgColor="#0EA5E9"
-                  />
-                </div>
-                <span className="text-[11px] text-slate-400 mt-2 font-medium">
-                  상대방이 내 QR을 스캔하면 프로필이 교환됩니다
-                </span>
-              </div>
-
-              {/* My Tags */}
-              <div className="flex flex-wrap justify-center gap-1.5 mb-2">
-                {currentUser?.tags?.slice(0, 4).map((t, i) => (
-                  <span key={i} className="px-2.5 py-0.8 text-[11px] font-semibold bg-sky-50 text-sky-700 rounded-full border border-sky-100">
-                    {t}
-                  </span>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setActiveTab('profile')}
-                className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-2xl shadow-md shadow-sky-200 transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>내 프로필 수정하기</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            /* SLIDE 2: PARTY MISSIONS & LIVE HIGHLIGHT */
-            <>
-              <div className="text-center pt-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-bold mb-2">
-                  <Zap className="w-3.5 h-3.5 fill-sky-600" />
-                  <span>파티 하이 퀘스트</span>
-                </div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  소외 없는 파티를 위한 미션 챌린지 🔥
-                </h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  남은 퀘스트 <span className="text-sky-600 font-bold">{uncompletedMissions.length}개</span> 도전 가능!
-                </p>
-              </div>
-
-              <div className="space-y-2.5 my-3">
-                {missions.slice(0, 2).map((m) => {
-                  const isDone = currentUser?.completedMissions?.includes(m.id);
-                  return (
-                    <div
-                      key={m.id}
-                      className={`p-3 rounded-2xl border text-xs flex items-center justify-between ${
-                        isDone ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-sky-50/50 border-sky-100'
-                      }`}
-                    >
-                      <div>
-                        <span className="font-bold text-slate-900 block">{m.title}</span>
-                        <span className="text-[10px] text-sky-600 font-semibold">보상: {m.reward}</span>
-                      </div>
-                      <span className="font-bold text-sky-700">+{m.points}P</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => setActiveTab('quests')}
-                className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white text-sm font-bold rounded-2xl shadow-md shadow-sky-200 transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>전체 퀘스트 확인 & 도전하기</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </>
-          )}
-
-          {/* Carousel Pagination Dots (Matching photo's 4-dot indicator) */}
-          <div className="flex items-center justify-center gap-1.5 mt-4">
-            {[0, 1, 2].map((dot) => (
-              <button
-                key={dot}
-                onClick={() => setActiveSlide(dot)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  activeSlide === dot ? 'w-5 bg-sky-600' : 'w-1.5 bg-slate-200'
-                }`}
-                title={`슬라이드 ${dot + 1}`}
+      <div className="space-y-4 px-4 pb-5 pt-3">
+        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <div className="flex min-h-[188px] items-center gap-4 p-5">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <img
+                src={currentUser?.avatar}
+                alt={currentUser?.name || '내 프로필'}
+                className="h-16 w-16 shrink-0 rounded-[22px] border-4 border-sky-50 object-cover shadow-sm"
               />
-            ))}
-          </div>
-        </motion.div>
-
-        {/* 3. Bottom Promotion / Event Banner (Replicating the screenshot's bottom PICK banner) */}
-        <div
-          onClick={() => setActiveTab('quests')}
-          className="mt-3 bg-white rounded-2xl p-3 border border-begins-cardBorder flex items-center justify-between shadow-xs cursor-pointer hover:shadow-md transition-all"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600 font-black text-sm">
-              <Gift className="w-5 h-5 text-sky-500" />
+              <ProfileCopy eyebrow="MY PROFILE" profile={currentUser} />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-sky-600">PICK</span>
-                <span className="text-xs font-bold text-slate-800">미션에 도전하고 보상 받으세요!</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-sky-500 text-white">
-                  새로 생겼어요!
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                퀘스트를 완수하면 드링크 쿠폰과 리워드가 쏟아져요
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
-        </div>
 
-        {/* 4. Quick Partner Discovery Strip */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-2 px-1">
-            <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5 text-sky-500" />
-              <span>지금 파티에 있는 사람들 ({guests.length}명)</span>
-            </span>
             <button
-              onClick={() => setIsScannerOpen(true)}
-              className="text-sky-600 hover:underline text-[11px] font-semibold"
+              type="button"
+              onClick={() => setActiveTab('profile')}
+              className="flex h-[138px] w-[118px] shrink-0 flex-col items-center justify-center rounded-[22px] border border-sky-100 bg-sky-50/60 transition active:scale-95"
+              aria-label="내 프로필 QR 자세히 보기"
             >
-              QR 스캔하기 →
+              <div className="rounded-2xl bg-white p-2 shadow-sm ring-1 ring-sky-100">
+                <QRCodeSVG
+                  value={`party_guest:${currentUser?.id || 'guest'}`}
+                  size={78}
+                  level="H"
+                  fgColor="#0EA5E9"
+                />
+              </div>
+              <span className="mt-2 text-[10px] font-black text-sky-600">내 QR 보여주기</span>
             </button>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {guests.map((guest) => {
-              const isMe = guest.id === currentUser?.id;
-              const isScanned = currentUser?.scannedGuests?.includes(guest.id);
-
-              return (
-                <div
-                  key={guest.id}
-                  onClick={() => {
-                    if (!isMe) {
-                      setScannedPartner(guest);
-                    }
-                  }}
-                  className={`shrink-0 w-24 p-2 rounded-2xl border text-center transition-all cursor-pointer hover:scale-105 ${
-                    isMe
-                      ? 'bg-sky-50/70 border-sky-300 ring-1 ring-sky-500'
-                      : isScanned
-                      ? 'bg-white border-slate-200'
-                      : 'bg-white border-dashed border-slate-300'
-                  }`}
-                >
-                  <div className="relative w-12 h-12 mx-auto mb-1">
-                    <img
-                      src={guest.avatar}
-                      alt={guest.name}
-                      className="w-full h-full rounded-full object-cover border border-slate-100"
-                    />
-                    <span className="absolute -bottom-1 -right-1 text-[9px] font-bold px-1 rounded bg-slate-800 text-white">
-                      {guest.mbti}
-                    </span>
-                  </div>
-                  <span className="block text-xs font-bold text-slate-800 truncate">
-                    {guest.name} {isMe && '(나)'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 block truncate">
-                    {guest.job}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+            <span className="text-[11px] font-semibold text-slate-500">
+              QR을 보여주고 서로의 프로필을 교환해요
+            </span>
+            <QrCode className="h-4 w-4 text-sky-500" />
           </div>
+        </section>
+
+        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <div className="flex min-h-[188px] items-center gap-4 p-5">
+            {scannedPartner ? (
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <img
+                  src={scannedPartner.avatar}
+                  alt={scannedPartner.name}
+                  className="h-16 w-16 shrink-0 rounded-[22px] border-4 border-violet-50 object-cover shadow-sm"
+                />
+                <ProfileCopy eyebrow="NEW CONNECTION" profile={scannedPartner} />
+              </div>
+            ) : (
+              <ProfileCopy eyebrow="MEET SOMEONE" empty />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="flex h-[138px] w-[118px] shrink-0 flex-col items-center justify-center rounded-[22px] bg-slate-950 text-white shadow-lg shadow-slate-200 transition hover:bg-sky-600 active:scale-95"
+            >
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
+                <ScanLine className="h-8 w-8" />
+              </span>
+              <span className="mt-3 text-xs font-black">
+                {scannedPartner ? '다른 사람 스캔' : 'QR 스캔하기'}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+              <MessageCircleMore className="h-4 w-4 text-violet-500" />
+              {scannedPartner
+                ? `${scannedPartner.name}님과 프로필을 소재로 대화해 보세요`
+                : '처음 만난 사람과 QR로 가볍게 시작해요'}
+            </span>
+          </div>
+        </section>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('quests')}
+          className="flex w-full items-center justify-between rounded-[22px] border border-sky-100 bg-white p-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-sky-300 active:scale-[0.99]"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-500">
+              <Gift className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <strong className="text-xs font-black text-sky-600">PICK</strong>
+                <strong className="truncate text-xs font-black text-slate-900">
+                  {activeMission?.title || '미션에 도전하고 보상 받으세요!'}
+                </strong>
+              </span>
+              <span className="mt-1 block truncate text-[11px] font-medium text-slate-400">
+                {activeMission?.reward
+                  ? `완료 보상 · ${activeMission.reward}`
+                  : '호스트가 미션을 띄우면 바로 참여할 수 있어요'}
+              </span>
+            </span>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+        </button>
+
+        <div className="flex items-center justify-between px-1 pt-4">
+          <span className="flex items-center gap-1.5 text-xs font-black text-slate-700">
+            <Users className="h-4 w-4 text-sky-500" />
+            지금 파티에 있는 사람들 ({guests.length}명)
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            className="flex items-center gap-1 text-[11px] font-black text-sky-600"
+          >
+            QR 스캔하기 <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>

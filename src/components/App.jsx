@@ -42,7 +42,7 @@ const AppContent = () => {
   };
 
   return (
-    <div className="relative w-full max-w-md min-h-screen bg-[#F7F7F9] flex flex-col font-sans select-none overflow-x-hidden">
+    <div className="relative min-h-screen w-full max-w-md overflow-x-hidden bg-[#F7F9FC] font-sans text-slate-900 shadow-2xl shadow-black/20 flex flex-col select-none">
       {/* Mobile Top Status / App Header */}
       <Header />
 
