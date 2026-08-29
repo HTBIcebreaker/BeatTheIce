@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import confetti from 'canvas-confetti';
+import { loadProfilePreferences, saveProfilePreferences } from '../features/shell-profile/preferences';
 
 const SocketContext = createContext();
 
@@ -17,6 +18,7 @@ export const SocketProvider = ({ children }) => {
   const [currentUserId, setCurrentUserId] = useState('guest_001'); // default to 이지우
   const [isHostMode, setIsHostMode] = useState(false);
   const [missions, setMissions] = useState([]);
+  const [missionSubmissions, setMissionSubmissions] = useState([]);
   const [popups, setPopups] = useState([]);
   const [latestPopup, setLatestPopup] = useState(null);
   const [rollingPapers, setRollingPapers] = useState([]);
@@ -25,6 +27,20 @@ export const SocketProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'quests', 'scan', 'rolling', 'profile'
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isHostControlOpen, setIsHostControlOpen] = useState(false);
+  const [preferencesRestored, setPreferencesRestored] = useState(false);
+
+  useEffect(() => {
+    const saved = loadProfilePreferences();
+    if (saved?.currentUserId) setCurrentUserId(saved.currentUserId);
+    if (typeof saved?.isHostMode === 'boolean') setIsHostMode(saved.isHostMode);
+    if (saved?.activeTab) setActiveTab(saved.activeTab);
+    setPreferencesRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesRestored) return;
+    saveProfilePreferences({ currentUserId, isHostMode, activeTab });
+  }, [currentUserId, isHostMode, activeTab, preferencesRestored]);
 
   // Trigger Confetti Effect
   const triggerConfetti = (options = {}) => {
@@ -39,10 +55,11 @@ export const SocketProvider = ({ children }) => {
   // Initial Fetch
   const fetchData = async () => {
     try {
-      const [partyRes, guestsRes, missionsRes, popupsRes, rollingRes] = await Promise.all([
+      const [partyRes, guestsRes, missionsRes, submissionsRes, popupsRes, rollingRes] = await Promise.all([
         fetch('/api/party').then((r) => r.json()),
         fetch('/api/guests').then((r) => r.json()),
         fetch('/api/missions').then((r) => r.json()),
+        fetch('/api/mission-submissions').then((r) => r.json()),
         fetch('/api/popups').then((r) => r.json()),
         fetch('/api/rolling-papers').then((r) => r.json()),
       ]);
@@ -53,6 +70,7 @@ export const SocketProvider = ({ children }) => {
       }
       if (guestsRes.success) setGuests(guestsRes.data);
       if (missionsRes.success) setMissions(missionsRes.data);
+      if (submissionsRes.success) setMissionSubmissions(submissionsRes.data);
       if (popupsRes.success) {
         setPopups(popupsRes.data);
         if (popupsRes.data.length > 0) {
@@ -105,6 +123,36 @@ export const SocketProvider = ({ children }) => {
       setMissions((prev) => [newMission, ...prev]);
     });
 
+    newSocket.on('mission_submission_created', (submission) => {
+      setMissionSubmissions((prev) => [
+        submission,
+        ...prev.filter((item) => item.id !== submission.id),
+      ]);
+    });
+
+    newSocket.on('mission_submission_reviewed', ({ submission, mission, guest, rewardCoupon }) => {
+      setMissionSubmissions((prev) =>
+        prev.map((item) => (item.id === submission.id ? submission : item))
+      );
+      if (mission) {
+        setMissions((prev) =>
+          prev.map((item) => (item.id === mission.id ? mission : item))
+        );
+      }
+      if (guest) {
+        setGuests((prev) =>
+          prev.map((item) => (item.id === guest.id ? guest : item))
+        );
+      }
+      if (rewardCoupon?.guestId === currentUserId) {
+        setRewards((prev) => [
+          rewardCoupon,
+          ...prev.filter((item) => item.id !== rewardCoupon.id),
+        ]);
+        triggerConfetti({ particleCount: 120, spread: 90 });
+      }
+    });
+
     newSocket.on('mission_completed', ({ mission, guestId, guestName, rewardCoupon }) => {
       setMissions((prev) =>
         prev.map((m) =>
@@ -125,6 +173,10 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on('guest_joined', (newGuest) => {
       setGuests((prev) => [...prev.filter((g) => g.id !== newGuest.id), newGuest]);
+    });
+
+    newSocket.on('guest_updated', (updatedGuest) => {
+      setGuests((prev) => prev.map((guest) => (guest.id === updatedGuest.id ? updatedGuest : guest)));
     });
 
     setSocket(newSocket);
@@ -194,6 +246,57 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  // ALPHA-TODO(owner: mission, consumer: shared-data)
+  // 현재 REST/Socket adapter를 Supabase mission_submissions adapter로 교체한다.
+  // fallback: 기존 in-memory API가 동일한 제출/검수 계약을 제공한다.
+  const submitMission = async (missionId, payload) => {
+    if (!currentUser) return { success: false, message: '게스트 정보가 없습니다.' };
+    try {
+      const res = await fetch(`/api/missions/${missionId}/submissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestId: currentUser.id, ...payload }),
+      }).then((response) => response.json());
+      if (res.success) {
+        setMissionSubmissions((prev) => [
+          res.data,
+          ...prev.filter((item) => item.id !== res.data.id),
+        ]);
+      }
+      return res;
+    } catch (err) {
+      console.error(err);
+      return { success: false, message: '미션 제출 중 오류가 발생했습니다.' };
+    }
+  };
+
+  const reviewMissionSubmission = async (submissionId, status, reviewNote = '') => {
+    try {
+      const res = await fetch(`/api/mission-submissions/${submissionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, reviewNote }),
+      }).then((response) => response.json());
+      if (res.success) {
+        const { submission, mission, guest, rewardCoupon } = res.data;
+        setMissionSubmissions((prev) =>
+          prev.map((item) => (item.id === submission.id ? submission : item))
+        );
+        if (mission) {
+          setMissions((prev) => prev.map((item) => (item.id === mission.id ? mission : item)));
+        }
+        if (guest) {
+          setGuests((prev) => prev.map((item) => (item.id === guest.id ? guest : item)));
+        }
+        if (rewardCoupon?.guestId === currentUserId) fetchRewards(currentUserId);
+      }
+      return res;
+    } catch (err) {
+      console.error(err);
+      return { success: false, message: '미션 판정 중 오류가 발생했습니다.' };
+    }
+  };
+
   // 4. Scan QR & Match Partner
   const scanQRCode = async (targetId) => {
     if (!currentUser) return;
@@ -259,6 +362,24 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  const updateGuestProfile = async (profilePayload) => {
+    if (!currentUser) return { success: false, message: '프로필을 찾을 수 없습니다.' };
+    try {
+      const res = await fetch(`/api/guests/${currentUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profilePayload),
+      }).then((response) => response.json());
+      if (res.success) {
+        setGuests((prev) => prev.map((guest) => (guest.id === res.data.id ? res.data : guest)));
+      }
+      return res;
+    } catch (err) {
+      console.error(err);
+      return { success: false, message: '프로필 저장 중 오류가 발생했습니다.' };
+    }
+  };
+
   // 7. Use Reward Coupon
   const useRewardCoupon = async (rewardId) => {
     try {
@@ -290,6 +411,7 @@ export const SocketProvider = ({ children }) => {
         isHostMode,
         setIsHostMode,
         missions,
+        missionSubmissions,
         popups,
         latestPopup,
         setLatestPopup,
@@ -307,9 +429,12 @@ export const SocketProvider = ({ children }) => {
         broadcastPopup,
         createMission,
         completeMission,
+        submitMission,
+        reviewMissionSubmission,
         scanQRCode,
         sendRollingPaper,
         registerGuest,
+        updateGuestProfile,
         useRewardCoupon,
         fetchData,
       }}

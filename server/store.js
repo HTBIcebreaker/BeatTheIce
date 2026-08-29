@@ -126,6 +126,8 @@ export const partyData = {
       targetCount: 1,
       completedBy: ["guest_001", "guest_003", "guest_005"],
       isUrgent: false,
+      submissionType: "TEXT",
+      status: "ACTIVE",
     },
     {
       id: "quest_002",
@@ -138,6 +140,8 @@ export const partyData = {
       targetCount: 3,
       completedBy: ["guest_002"],
       isUrgent: false,
+      submissionType: "TEXT",
+      status: "ACTIVE",
     },
     {
       id: "quest_003",
@@ -150,6 +154,8 @@ export const partyData = {
       targetCount: 1,
       completedBy: ["guest_003"],
       isUrgent: true,
+      submissionType: "PHOTO",
+      status: "ACTIVE",
     },
     {
       id: "quest_004",
@@ -162,6 +168,8 @@ export const partyData = {
       targetCount: 1,
       completedBy: [],
       isUrgent: false,
+      submissionType: "PHOTO",
+      status: "ACTIVE",
     },
     {
       id: "quest_005",
@@ -174,8 +182,11 @@ export const partyData = {
       targetCount: 2,
       completedBy: [],
       isUrgent: false,
+      submissionType: "TEXT",
+      status: "ACTIVE",
     },
   ],
+  missionSubmissions: [],
   rollingPapers: [
     {
       id: "rp_001",

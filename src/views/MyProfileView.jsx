@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { QRCodeSVG } from 'qrcode.react';
-import { User, QrCode, Sparkles, Edit3, Check, Trophy, Users, Award, HeartHandshake } from 'lucide-react';
+import { Sparkles, Edit3, Check, Crown, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMyProfile } from '../lib/supabase/useMyProfile';
 
 export const MyProfileView = () => {
-  const { currentUser, setGuests, triggerConfetti } = useSocket();
+  const { currentUser, updateGuestProfile, triggerConfetti, isHostMode, setIsHostControlOpen } = useSocket();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // PROF-02: 실제 Supabase profiles.id를 QR 값으로 쓰고, 부트스트랩 실패 시
   // 기존 Socket.IO currentUser.id 기반 표시로 폴백한다.
@@ -27,32 +29,44 @@ export const MyProfileView = () => {
   const [iceQ, setIceQ] = useState(currentUser?.icebreakerQuestion || '내가 요즘 제일 꽂혀있는 것은?');
   const [iceA, setIceA] = useState(currentUser?.icebreakerAnswer || '주말 카페 투어');
 
-  const handleSave = (e) => {
+  useEffect(() => {
+    if (!currentUser || isEditing) return;
+    setName(currentUser.name || '');
+    setMbti(currentUser.mbti || '');
+    setBio(currentUser.bio || '');
+    setJob(currentUser.job || '');
+    setAge(currentUser.age || '만 25세');
+    setDrinkStyle(currentUser.drinkStyle || '소주 1병');
+    setSmoking(currentUser.smoking || '비흡연');
+    setIceQ(currentUser.icebreakerQuestion || '내가 요즘 제일 꽂혀있는 것은?');
+    setIceA(currentUser.icebreakerAnswer || '주말 카페 투어');
+  }, [currentUser, isEditing]);
+
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!currentUser) return;
 
     const updatedTags = [age, mbti, drinkStyle, smoking, job];
 
-    setGuests((prev) =>
-      prev.map((g) =>
-        g.id === currentUser.id
-          ? {
-              ...g,
-              name,
-              mbti,
-              bio,
-              job,
-              age,
-              drinkStyle,
-              smoking,
-              tags: updatedTags,
-              icebreakerQuestion: iceQ,
-              icebreakerAnswer: iceA,
-            }
-          : g
-      )
-    );
-
+    setSaveError('');
+    setIsSaving(true);
+    const result = await updateGuestProfile({
+      name: name.trim(),
+      mbti: mbti.trim().toUpperCase(),
+      bio: bio.trim(),
+      job: job.trim(),
+      age: age.trim(),
+      drinkStyle: drinkStyle.trim(),
+      smoking: smoking.trim(),
+      tags: updatedTags.filter(Boolean),
+      icebreakerQuestion: iceQ.trim(),
+      icebreakerAnswer: iceA.trim(),
+    });
+    setIsSaving(false);
+    if (!result?.success) {
+      setSaveError(result?.message || '저장하지 못했습니다.');
+      return;
+    }
     setIsEditing(false);
     triggerConfetti({ particleCount: 60, spread: 60 });
   };
@@ -73,13 +87,16 @@ export const MyProfileView = () => {
         </div>
 
         <button
-          onClick={() => setIsEditing(!isEditing)}
+          onClick={() => {
+            setSaveError('');
+            setIsEditing(!isEditing);
+          }}
           className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1"
         >
           {isEditing ? (
             <>
-              <Check className="w-3.5 h-3.5" />
-              <span>완료</span>
+              <X className="w-3.5 h-3.5" />
+              <span>취소</span>
             </>
           ) : (
             <>
@@ -176,10 +193,12 @@ export const MyProfileView = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-200 transition-all"
+            disabled={isSaving || !name.trim()}
+            className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-200 transition-all disabled:opacity-50"
           >
-            프로필 변경사항 저장
+            {isSaving ? '프로필 저장 중...' : '프로필 변경사항 저장'}
           </button>
+          {saveError && <p className="text-center text-xs font-bold text-red-500">{saveError}</p>}
         </form>
       ) : (
         /* My Card Display */
@@ -239,6 +258,11 @@ export const MyProfileView = () => {
               A. {currentUser.icebreakerAnswer}
             </div>
           </div>
+          {isHostMode && (
+            <button type="button" onClick={() => setIsHostControlOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3 text-xs font-black text-white shadow-md">
+              <Crown className="h-4 w-4 text-amber-300" /> 호스트 컨트롤 열기
+            </button>
+          )}
         </div>
       )}
     </div>

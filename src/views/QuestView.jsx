@@ -1,15 +1,109 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { Zap, CheckCircle2, Gift, Ticket, Flame, Trophy, Sparkles, ChevronRight, PlusCircle } from 'lucide-react';
+import { Zap, CheckCircle2, Gift, Ticket, Flame, Sparkles, PlusCircle, Camera, RotateCcw, Send, Clock3, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { compressMissionPhoto } from '../features/mission/compressMissionPhoto';
+
+const MissionSubmissionForm = ({ mission, submission, onSubmit }) => {
+  const inputRef = useRef(null);
+  const [text, setText] = useState('');
+  const [photoDataUrl, setPhotoDataUrl] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const isPhoto = mission.submissionType === 'PHOTO';
+  const canRetry = submission?.status === 'REJECTED';
+  const isLocked = submission && !canRetry;
+
+  const handlePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setError('');
+    setIsCompressing(true);
+    try {
+      setPhotoDataUrl(await compressMissionPhoto(file));
+    } catch (photoError) {
+      setError(photoError.message);
+    } finally {
+      setIsCompressing(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleSubmit = async () => {
+    if ((isPhoto && !photoDataUrl) || (!isPhoto && !text.trim())) return;
+    setError('');
+    setIsSubmitting(true);
+    const result = await onSubmit({ text: text.trim(), photoDataUrl });
+    if (!result?.success) setError(result?.message || '제출하지 못했습니다.');
+    setIsSubmitting(false);
+  };
+
+  if (isLocked) {
+    const status = submission.status;
+    return (
+      <div className={`mt-3 rounded-2xl border p-3 text-xs ${
+        status === 'APPROVED'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-amber-200 bg-amber-50 text-amber-700'
+      }`}>
+        <div className="flex items-center gap-1.5 font-black">
+          {status === 'APPROVED' ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+          {status === 'APPROVED' ? '미션 승인 · 보상 지급 완료' : '제출 완료 · HOST 확인 대기'}
+        </div>
+        {submission.photoDataUrl && (
+          <img src={submission.photoDataUrl} alt="제출한 인증" className="mt-2 h-28 w-full rounded-xl object-cover" />
+        )}
+        {submission.text && <p className="mt-2 font-medium">{submission.text}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50/50 p-3">
+      {canRetry && (
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-red-600">
+          <XCircle className="h-3.5 w-3.5" /> 반려됨: {submission.reviewNote || '인증 내용을 확인해 주세요.'}
+        </div>
+      )}
+      {isPhoto ? (
+        <>
+          <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
+          {photoDataUrl ? (
+            <div className="relative overflow-hidden rounded-xl bg-slate-900">
+              <img src={photoDataUrl} alt="미션 인증 미리보기" className="h-44 w-full object-contain" />
+              <button type="button" onClick={() => inputRef.current?.click()} className="absolute bottom-2 right-2 flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1.5 text-[10px] font-bold text-white">
+                <RotateCcw className="h-3 w-3" /> 다시 촬영
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={isCompressing} className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-sky-300 bg-white py-7 text-sky-600 disabled:opacity-50">
+              <Camera className="mb-2 h-7 w-7" />
+              <span className="text-xs font-black">{isCompressing ? '사진 압축 중...' : '인증 사진 촬영 또는 선택'}</span>
+              <span className="mt-1 text-[10px] font-medium text-slate-400">최대 1280px로 자동 압축돼요</span>
+            </button>
+          )}
+        </>
+      ) : (
+        <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={1000} placeholder="미션 수행 내용을 입력해 주세요." className="h-20 w-full resize-none rounded-xl border border-sky-100 bg-white p-3 text-xs outline-none focus:ring-2 focus:ring-sky-200" />
+      )}
+      {error && <p className="mt-2 text-[11px] font-bold text-red-500">{error}</p>}
+      <button type="button" onClick={handleSubmit} disabled={isSubmitting || isCompressing || (isPhoto ? !photoDataUrl : !text.trim())} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-sky-500 py-2.5 text-xs font-black text-white shadow-sm disabled:opacity-40">
+        <Send className="h-3.5 w-3.5" /> {isSubmitting ? '제출 중...' : canRetry ? '미션 다시 제출' : 'HOST에게 미션 제출'}
+      </button>
+    </div>
+  );
+};
 
 export const QuestView = () => {
   const {
     missions,
+    missionSubmissions,
     currentUser,
-    completeMission,
+    submitMission,
     rewards,
     useRewardCoupon,
     isHostMode,
@@ -102,6 +196,9 @@ export const QuestView = () => {
         <div className="space-y-3 flex-1 overflow-y-auto">
           {missions.map((mission) => {
             const isCompleted = currentUser?.completedMissions?.includes(mission.id);
+            const submission = missionSubmissions.find(
+              (item) => item.missionId === mission.id && item.guestId === currentUser?.id
+            );
 
             return (
               <motion.div
@@ -131,6 +228,9 @@ export const QuestView = () => {
                     <span className="text-[11px] font-semibold text-slate-400">
                       +{mission.points} P
                     </span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                      {mission.submissionType === 'PHOTO' ? '📷 사진 인증' : '✍️ 텍스트 인증'}
+                    </span>
                   </div>
 
                   {isCompleted && (
@@ -151,16 +251,17 @@ export const QuestView = () => {
                     <span>보상: {mission.reward}</span>
                   </div>
 
-                  {!isCompleted && (
-                    <button
-                      onClick={() => completeMission(mission.id)}
-                      className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-sm shadow-sky-200 active:scale-95 flex items-center gap-1"
-                    >
-                      <span>미션 완료 인증</span>
-                      <Sparkles className="w-3 h-3" />
-                    </button>
+                  {!isCompleted && !submission && (
+                    <span className="text-[10px] font-bold text-slate-400">아래에서 인증 제출</span>
                   )}
                 </div>
+                {!isCompleted && (
+                  <MissionSubmissionForm
+                    mission={mission}
+                    submission={submission}
+                    onSubmit={(payload) => submitMission(mission.id, payload)}
+                  />
+                )}
               </motion.div>
             );
           })}

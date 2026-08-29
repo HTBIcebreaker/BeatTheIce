@@ -32,3 +32,6 @@ next-env.d.ts
 .env.*
 !.env.example
 .env.local
+
+# Supabase local link/cache
+supabase/.temp/
