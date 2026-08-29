@@ -12,7 +12,6 @@ export function useMyProfile(seed) {
   seedRef.current = seed;
 
   useEffect(() => {
-    if (!seed) return undefined;
     let cancelled = false;
 
     async function bootstrap() {
