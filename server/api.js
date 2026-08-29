@@ -115,8 +115,9 @@ export function createApiRouter(io) {
       return res.status(404).json({ success: false, message: '인식된 상대방 정보를 찾을 수 없습니다.' });
     }
 
+    const isNewDiscovery = scanner ? !scanner.scannedGuests.includes(targetId) : true;
     if (scanner) {
-      if (!scanner.scannedGuests.includes(targetId)) {
+      if (isNewDiscovery) {
         scanner.scannedGuests.push(targetId);
         scanner.points += 30; // 30 points for scanning new guest
       }
@@ -134,7 +135,7 @@ export function createApiRouter(io) {
       success: true,
       data: {
         target,
-        isNewDiscovery: scanner ? !scanner.scannedGuests.includes(targetId) : true,
+        isNewDiscovery,
         pointsEarned: 30,
       },
     });
