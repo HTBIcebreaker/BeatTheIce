@@ -40,11 +40,13 @@ const ProfileCopy = ({ eyebrow, profile, empty = false }) => (
         <p className="mt-2 line-clamp-2 max-w-[205px] text-xs font-medium leading-5 text-slate-500">
           {profile?.bio || '한 줄 소개를 등록해 주세요.'}
         </p>
-        {profile?.job && (
-          <span className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
-            {profile.job}
-          </span>
-        )}
+        <div className="mt-3 flex max-w-[205px] gap-1 overflow-hidden">
+          {(profile?.tags?.length ? profile.tags : [profile?.job]).filter(Boolean).slice(0, 2).map((tag) => (
+            <span key={tag} className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+              {tag}
+            </span>
+          ))}
+        </div>
       </>
     )}
   </div>

@@ -87,6 +87,24 @@ export function createApiRouter(io) {
     res.status(201).json({ success: true, data: newGuest });
   });
 
+  router.patch('/guests/:id', (req, res) => {
+    const guest = partyData.guests.find((item) => item.id === req.params.id);
+    if (!guest) {
+      return res.status(404).json({ success: false, message: '게스트를 찾을 수 없습니다.' });
+    }
+
+    const allowedFields = [
+      'name', 'mbti', 'bio', 'job', 'age', 'drinkStyle', 'smoking',
+      'avatar', 'tags', 'icebreakerQuestion', 'icebreakerAnswer',
+    ];
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) guest[field] = req.body[field];
+    });
+    guest.updatedAt = new Date().toISOString();
+    io.emit('guest_updated', guest);
+    res.json({ success: true, data: guest });
+  });
+
   // 3. Scan QR & Connect
   router.post('/guests/scan', (req, res) => {
     const { scannerId, targetId } = req.body;

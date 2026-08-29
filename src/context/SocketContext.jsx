@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import confetti from 'canvas-confetti';
+import { loadProfilePreferences, saveProfilePreferences } from '../features/shell-profile/preferences';
 
 const SocketContext = createContext();
 
@@ -26,6 +27,20 @@ export const SocketProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'quests', 'scan', 'rolling', 'profile'
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isHostControlOpen, setIsHostControlOpen] = useState(false);
+  const [preferencesRestored, setPreferencesRestored] = useState(false);
+
+  useEffect(() => {
+    const saved = loadProfilePreferences();
+    if (saved?.currentUserId) setCurrentUserId(saved.currentUserId);
+    if (typeof saved?.isHostMode === 'boolean') setIsHostMode(saved.isHostMode);
+    if (saved?.activeTab) setActiveTab(saved.activeTab);
+    setPreferencesRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesRestored) return;
+    saveProfilePreferences({ currentUserId, isHostMode, activeTab });
+  }, [currentUserId, isHostMode, activeTab, preferencesRestored]);
 
   // Trigger Confetti Effect
   const triggerConfetti = (options = {}) => {
@@ -158,6 +173,10 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on('guest_joined', (newGuest) => {
       setGuests((prev) => [...prev.filter((g) => g.id !== newGuest.id), newGuest]);
+    });
+
+    newSocket.on('guest_updated', (updatedGuest) => {
+      setGuests((prev) => prev.map((guest) => (guest.id === updatedGuest.id ? updatedGuest : guest)));
     });
 
     setSocket(newSocket);
@@ -343,6 +362,24 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  const updateGuestProfile = async (profilePayload) => {
+    if (!currentUser) return { success: false, message: '프로필을 찾을 수 없습니다.' };
+    try {
+      const res = await fetch(`/api/guests/${currentUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profilePayload),
+      }).then((response) => response.json());
+      if (res.success) {
+        setGuests((prev) => prev.map((guest) => (guest.id === res.data.id ? res.data : guest)));
+      }
+      return res;
+    } catch (err) {
+      console.error(err);
+      return { success: false, message: '프로필 저장 중 오류가 발생했습니다.' };
+    }
+  };
+
   // 7. Use Reward Coupon
   const useRewardCoupon = async (rewardId) => {
     try {
@@ -397,6 +434,7 @@ export const SocketProvider = ({ children }) => {
         scanQRCode,
         sendRollingPaper,
         registerGuest,
+        updateGuestProfile,
         useRewardCoupon,
         fetchData,
       }}
