@@ -5,12 +5,25 @@ import { useSocket } from '../context/SocketContext';
 import { X, Camera, QrCode, Sparkles, UserCheck, AlertCircle } from 'lucide-react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMyProfile } from '../lib/supabase/useMyProfile';
+import { resolveScannedProfile, mapProfileToGuestView, ScanError } from '../lib/supabase/profile';
+
+const SCAN_ERROR_MESSAGES = {
+  SELF_SCAN: '내 QR은 스캔할 수 없어요.',
+  NOT_PARTY_MEMBER: '같은 파티 참가자가 아닌 QR이에요.',
+  PROFILE_NOT_FOUND: '프로필을 찾을 수 없어요.',
+  INVALID_QR: '인식할 수 없는 QR이에요.',
+};
 
 export const QRScannerModal = ({ isOpen, onClose }) => {
-  const { guests, currentUser, scanQRCode } = useSocket();
+  const { guests, currentUser, scanQRCode, setScannedPartner } = useSocket();
   const [scanMode, setScanMode] = useState('simulated'); // 'camera' or 'simulated'
   const [selectedTargetId, setSelectedTargetId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
+
+  // PROF-03: 카메라로 인식한 실제 Supabase QR을 검증하려면 현재 파티 id가 필요하다.
+  const { party: myParty, ready: myProfileReady } = useMyProfile(currentUser);
 
   useEffect(() => {
     let scanner = null;
@@ -24,10 +37,29 @@ export const QRScannerModal = ({ isOpen, onClose }) => {
           );
           scanner.render(
             async (decodedText) => {
-              // format expected: "party_guest:guest_002" or just "guest_002"
-              const cleanId = decodedText.replace('party_guest:', '').trim();
+              const cleanValue = decodedText.replace('party_guest:', '').trim();
               scanner.clear();
-              await scanQRCode(cleanId);
+              setScanError('');
+
+              // PROF-03: 실제 Supabase QR(profiles.id)이면 우선 그 값으로 검증하고,
+              // 파티 부트스트랩이 아직 안 됐거나 옛 형식(레거시 guest id)이면
+              // 기존 Socket.IO 스캔으로 폴백한다.
+              if (myProfileReady && myParty) {
+                try {
+                  const profile = await resolveScannedProfile(cleanValue, myParty.id);
+                  setScannedPartner(mapProfileToGuestView(profile));
+                  onClose();
+                  return;
+                } catch (err) {
+                  if (err instanceof ScanError) {
+                    setScanError(SCAN_ERROR_MESSAGES[err.code] || err.message);
+                    return;
+                  }
+                  console.warn('[p2p-qr] Supabase 스캔 검증 실패, 레거시 스캔으로 폴백:', err.message);
+                }
+              }
+
+              await scanQRCode(cleanValue);
               onClose();
             },
             (error) => {
@@ -126,6 +158,12 @@ export const QRScannerModal = ({ isOpen, onClose }) => {
                 <p className="text-[11px] text-slate-400 mt-2 text-center">
                   상대방 휴대폰의 MY 화면 QR 코드를 카메라 정면에 비춰주세요.
                 </p>
+                {scanError && (
+                  <div className="mt-2 w-full flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-[11px] font-semibold">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{scanError}</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-2">

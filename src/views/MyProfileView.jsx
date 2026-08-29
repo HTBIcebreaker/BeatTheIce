@@ -5,10 +5,16 @@ import { useSocket } from '../context/SocketContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { User, QrCode, Sparkles, Edit3, Check, Trophy, Users, Award, HeartHandshake } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useMyProfile } from '../lib/supabase/useMyProfile';
 
 export const MyProfileView = () => {
   const { currentUser, setGuests, triggerConfetti } = useSocket();
   const [isEditing, setIsEditing] = useState(false);
+
+  // PROF-02: 실제 Supabase profiles.id를 QR 값으로 쓰고, 부트스트랩 실패 시
+  // 기존 Socket.IO currentUser.id 기반 표시로 폴백한다.
+  const { profile: myQrProfile, ready: myQrReady } = useMyProfile(currentUser);
+  const qrValue = myQrReady && myQrProfile ? myQrProfile.id : `party_guest:${currentUser?.id || 'guest'}`;
 
   // Edit fields
   const [name, setName] = useState(currentUser?.name || '');
@@ -209,7 +215,7 @@ export const MyProfileView = () => {
             {/* Big QR Code */}
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 inline-block my-2 shadow-inner">
               <QRCodeSVG
-                value={`party_guest:${currentUser.id}`}
+                value={qrValue}
                 size={160}
                 level="H"
                 fgColor="#0EA5E9"

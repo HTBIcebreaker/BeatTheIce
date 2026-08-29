@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useMyProfile } from '../lib/supabase/useMyProfile';
 
 const ProfileCopy = ({ eyebrow, profile, empty = false }) => (
   <div className="min-w-0 flex-1">
@@ -64,6 +65,11 @@ export const MainView = () => {
     (mission) => !currentUser?.completedMissions?.includes(mission.id)
   );
 
+  // PROF-02: 실제 Supabase profiles.id를 QR 값으로 쓰고, 부트스트랩 실패 시
+  // 기존 Socket.IO currentUser.id 기반 표시로 폴백한다.
+  const { profile: myQrProfile, ready: myQrReady } = useMyProfile(currentUser);
+  const qrValue = myQrReady && myQrProfile ? myQrProfile.id : `party_guest:${currentUser?.id || 'guest'}`;
+
   return (
     <div className="flex flex-1 flex-col pb-28">
       <HostPopupBanner />
@@ -88,7 +94,7 @@ export const MainView = () => {
             >
               <div className="rounded-2xl bg-white p-2 shadow-sm ring-1 ring-sky-100">
                 <QRCodeSVG
-                  value={`party_guest:${currentUser?.id || 'guest'}`}
+                  value={qrValue}
                   size={78}
                   level="H"
                   fgColor="#0EA5E9"
